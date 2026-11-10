@@ -1,0 +1,1949 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String                 @id @default(cuid())
+  email                 String?                @unique
+  passwordHash          String?
+  name                  String
+  avatarUrl             String?
+  provider              AuthProvider           @default(EMAIL)
+  providerId            String?
+  emailVerified         Boolean                @default(false)
+  emailVerifiedAt       DateTime?
+  locale                String                 @default("pt")
+  countryCode           String?                @db.Char(2)
+  timezone              String?
+  measurementSystem     MeasurementSystem?
+  regionDetectionSource RegionDetectionSource?
+
+  birthDate     DateTime?
+  gender        Gender?
+  heightCm      Float?
+  weightKg      Float?
+  activityLevel ActivityLevel?
+
+  dietType            DietType?
+  exerciseCalories    Boolean   @default(false)
+  rolloverCalories    Boolean   @default(false)
+  notificationsOptIn  Boolean   @default(false)
+  onboardingCompleted Boolean   @default(false)
+
+  // Set once, the moment onboarding completes - grants full app access for
+  // TRIAL_ACCESS_DAYS with no card required, before any Stripe/RevenueCat
+  // entitlement exists. See SubscriptionAccessService.
+  trialActivatedAt DateTime?
+
+  referralCode         String?   @unique
+  healthConnectOptIn   Boolean   @default(false)
+  healthConnectOptInAt DateTime?
+
+  guestInstallationHash String? @unique
+  compedAccess          Boolean @default(false)
+  isAdmin               Boolean @default(false)
+  scanAccountGeneration Int     @default(1)
+
+  // Lifetime free-tier usage counters (non-subscribers only). Never reset by
+  // login/logout/reinstall/device change - tied to the account row itself,
+  // same durability guarantee as compedAccess. See SubscriptionAccessService
+  // and modules/scan for where these are read/incremented.
+  freeScansUsed    Int     @default(0)
+  freeMealLogsUsed Int     @default(0)
+  freeDoseUsed     Boolean @default(false)
+
+  refreshTokens           RefreshToken[]
+  appleCredential         AppleCredential?
+  oauthAuthorizationCodes OAuthAuthorizationCode[]
+  passwordResetTokens     PasswordResetToken[]
+  consents                Consent[]
+  goals                   Goal[]
+  meals                   Meal[]
+  dailyLogs               DailyLog[]
+  streak                  Streak?
+  billingSubject          BillingSubject?
+  notificationPref        NotificationPreference?
+  weeklySummaries         WeeklySummary[]
+  referralsSent           Referral[]               @relation("ReferralInviter")
+  referralReceived        Referral?                @relation("ReferralInvitee")
+  userAchievements        UserAchievement[]
+
+  gamificationProfile GamificationProfile?
+  pointsEvents        PointsEvent[]
+  userBadges          UserBadge[]
+
+  medicationConsent     MedicationConsent?
+  medications           Medication[]
+  medicationLogs        MedicationLog[]
+  waterEntries          WaterEntry[]
+  weightEntries         WeightEntry[]
+  syncMutations         SyncMutation[]
+  syncChanges           SyncChange[]
+  syncBootstrapSessions SyncBootstrapSession[]
+
+  dietProfile           DietProfile?
+  recipes               Recipe[]
+  mealPlans             MealPlan[]
+  workoutProfile        WorkoutProfile?
+  workoutPlans          WorkoutPlan[]
+  workoutSessions       WorkoutSession[]
+  onboardingSubmissions OnboardingSubmission[]
+  planMutations         PlanMutation[]
+
+  scanJobs           ScanJob[]
+  scanUsages         ScanUsage[]
+  scanFeedbacks      ScanFeedback[]
+  scanFeedbackUsages ScanFeedbackUsage[]
+
+  glp1Consents            Glp1Consent[]
+  glp1Treatments          Glp1Treatment[]
+  glp1DosePlanPeriods     Glp1DosePlanPeriod[]
+  glp1DoseEvents          Glp1DoseEvent[]
+  glp1SymptomEvents       Glp1SymptomEvent[]
+  glp1ReminderRules       Glp1ReminderRule[]
+  glp1InjectionSiteStates Glp1InjectionSiteState[]
+  glp1SetupSubmissions    Glp1SetupSubmission[]
+
+  productAnalyticsEvents ProductAnalyticsEvent[]
+
+  communityPosts    CommunityPost[]
+  communityComments CommunityComment[]
+  communityLikes    CommunityLike[]
+  communityReports  CommunityReport[]
+
+  supportChatConversations SupportChatConversation[]
+  suggestions              Suggestion[]
+
+  directChatParticipants DirectChatParticipant[]
+  directChatMessages     DirectChatMessage[]
+
+  sentFriendships     CommunityFriendship[] @relation("UserFriends")
+  receivedFriendships CommunityFriendship[] @relation("FriendUsers")
+
+  trainerProfile          TrainerProfile?
+  enrolledTrainerPrograms TrainerProgramEnrollment[]
+
+  trainingWorkouts TrainingWorkout[]
+  trainingChallenges TrainingChallengeEntry[]
+  stories    CommunityStory[]
+  storyViews CommunityStoryView[]
+  storyLikes CommunityStoryLike[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([provider, providerId])
+  @@index([email])
+  @@index([referralCode])
+  @@map("users")
+}
+
+model AppleCredential {
+  userId          String   @id
+  tokenCiphertext String
+  tokenIv         String
+  tokenTag        String
+  tokenType       String
+  tokenKeyId      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("apple_credentials")
+}
+
+enum ReferralStatus {
+  PENDING
+  QUALIFIED
+  REWARDED
+}
+
+enum AuthProvider {
+  GUEST
+  EMAIL
+  GOOGLE
+  APPLE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum MeasurementSystem {
+  METRIC
+  IMPERIAL
+}
+
+enum RegionDetectionSource {
+  DEVICE_REGION
+  TIMEZONE
+  MANUAL
+}
+
+enum MedicationMarket {
+  BRAZIL
+  UNITED_STATES
+  EUROPE
+  ASIA
+  INTERNATIONAL
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum DietType {
+  OMNIVORE
+  VEGETARIAN
+  VEGAN
+  PESCATARIAN
+  KETO
+  CARNIVORE
+  OTHER
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  familyId   String?
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceInfo String?
+  ipAddress  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model OAuthAuthorizationCode {
+  id            String    @id @default(cuid())
+  codeHash      String    @unique
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientState   String
+  codeChallenge String
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("oauth_authorization_codes")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+enum GoalType {
+  LOSE_WEIGHT
+  GAIN_WEIGHT
+  MAINTAIN
+  GAIN_MUSCLE
+}
+
+enum GoalSpeed {
+  SLOW
+  MODERATE
+  FAST
+}
+
+model Goal {
+  id                   String     @id @default(cuid())
+  userId               String
+  user                 User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type                 GoalType
+  targetWeightKg       Float?
+  dailyCalories        Int
+  dailyProteinG        Float?
+  dailyCarbsG          Float?
+  dailyFatG            Float?
+  dailyFiberG          Float
+  waterMl              Int?
+  goalSpeed            GoalSpeed?
+  weeklyGoalKg         Float?
+  algorithmVersion     String     @default("mifflin-st-jeor-v5-disclosed-adult-targets")
+  calculationInputJson Json?
+  startDate            DateTime   @default(now())
+  targetDate           DateTime?
+  isActive             Boolean    @default(true)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  @@index([userId, isActive])
+  @@map("goals")
+}
+
+enum FoodSource {
+  TACO
+  USDA
+  AI_GENERATED
+}
+
+model FoodItem {
+  id             String  @id @default(cuid())
+  name           String
+  nameNormalized String
+  category       String?
+  brandName      String?
+
+  caloriesPer100g Float
+  proteinPer100g  Float
+  carbsPer100g    Float
+  fatPer100g      Float
+
+  defaultPortionG     Float?
+  defaultPortionLabel String?
+
+  source         FoodSource
+  timesUsed      Int        @default(0)
+  timesValidated Int        @default(0)
+  isVerified     Boolean    @default(false)
+  imageHashes    String[]
+
+  mealItems MealItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([nameNormalized, brandName])
+  @@index([nameNormalized])
+  @@index([category])
+  @@map("food_items")
+}
+
+enum MealType {
+  BREAKFAST
+  MORNING_SNACK
+  LUNCH
+  AFTERNOON_SNACK
+  DINNER
+  SUPPER
+}
+
+model Meal {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idempotencyKey String?
+  type           MealType
+  imageUrl       String?
+  imageHash      String?
+  aiRaw          Json?
+  totalCalories  Float
+  totalProteinG  Float
+  totalCarbsG    Float
+  totalFatG      Float
+  totalFiberG    Float    @default(0)
+  confidence     Float?
+  wasEdited      Boolean  @default(false)
+  loggedAt       DateTime @default(now())
+
+  items      MealItem[]
+  dailyLog   DailyLog?  @relation(fields: [dailyLogId], references: [id])
+  dailyLogId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, loggedAt])
+  @@index([imageHash])
+  @@map("meals")
+}
+
+model MealItem {
+  id           String    @id @default(cuid())
+  mealId       String
+  meal         Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  foodItemId   String?
+  foodItem     FoodItem? @relation(fields: [foodItemId], references: [id])
+  name         String
+  portionG     Float
+  portionLabel String?
+  calories     Float
+  proteinG     Float
+  carbsG       Float
+  fatG         Float
+  fiberG       Float     @default(0)
+  quantity     Float     @default(1)
+
+  createdAt DateTime @default(now())
+
+  @@index([mealId])
+  @@index([foodItemId])
+  @@map("meal_items")
+}
+
+model RateLimitBucket {
+  id          String   @id @default(cuid())
+  key         String
+  route       String
+  windowStart DateTime
+  count       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([key, route, windowStart])
+  @@index([route, windowStart])
+  @@index([windowStart])
+  @@map("rate_limit_buckets")
+}
+
+model DailyLog {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date   DateTime @db.Date
+
+  totalCalories Float @default(0)
+  totalProteinG Float @default(0)
+  totalCarbsG   Float @default(0)
+  totalFatG     Float @default(0)
+  totalFiberG   Float @default(0)
+  totalWaterMl  Float @default(0)
+
+  targetCalories Int?
+  targetProteinG Float?
+  targetCarbsG   Float?
+  targetFatG     Float?
+
+  weightKg Float?
+
+  meals         Meal[]
+  waterEntries  WaterEntry[]
+  weightEntries WeightEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("daily_logs")
+}
+
+model WaterEntry {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyLogId       String
+  dailyLog         DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  amountMl         Float
+  clientMutationId String?
+  loggedAt         DateTime @default(now())
+
+  @@unique([userId, clientMutationId])
+  @@index([userId])
+  @@map("water_entries")
+}
+
+model WeightEntry {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyLogId       String
+  dailyLog         DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  weightKg         Float
+  clientMutationId String?
+  measuredAt       DateTime
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, clientMutationId])
+  @@index([userId, measuredAt])
+  @@index([dailyLogId, measuredAt])
+  @@map("weight_entries")
+}
+
+enum SyncMutationStatus {
+  PROCESSING
+  APPLIED
+  REJECTED
+}
+
+enum SyncChangeAction {
+  UPSERT
+  DELETE
+}
+
+enum ScanAccountCleanupStatus {
+  PENDING
+  PROCESSING
+  RETRY
+  COMPLETED
+}
+
+enum ScanJobStatus {
+  PROCESSING
+  COMPLETED
+  FAILED_FINAL
+  CANCELED
+}
+
+// AI food-photo scanning. Runs in-process (see modules/scan) - the image
+// itself is never persisted, only the analysis result. Rows cascade-delete
+// with their User, unlike ScanAccountCleanupTask below which deliberately
+// survives it.
+model ScanJob {
+  id              String        @id
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idempotencyHash String
+  contentSha256   String
+  contentType     String
+  sizeBytes       Int
+  locale          String
+  quotaDay        String
+  dailyLimit      Int
+  status          ScanJobStatus
+  leaseToken      String?
+  leaseExpiresAt  DateTime?
+  result          Json?
+  provider        String?
+  imageHash       String?
+  errorCode       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  expiresAt       DateTime
+
+  @@unique([userId, idempotencyHash])
+  @@index([userId, quotaDay, status])
+  @@index([expiresAt])
+  @@map("scan_jobs")
+}
+
+// One row per (user, UTC day) - tracks completed scans and total attempts
+// against the daily limits enforced in ScanService.
+model ScanUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quotaDay  String
+  completed Int      @default(0)
+  attempts  Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, quotaDay])
+  @@map("scan_usage")
+}
+
+// User-edited portion corrections on a completed scan, feeding
+// buildPortionCalibrationProfile() so future scans for the same foods start
+// from a calibrated estimate.
+model ScanFeedback {
+  id          String   @id @default(cuid())
+  scanId      String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payloadHash String
+  edited      Boolean
+  rawItems    Json
+  savedItems  Json
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("scan_feedback")
+}
+
+model ScanFeedbackUsage {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quotaDay       String
+  acceptedCount  Int       @default(0)
+  lastAcceptedAt DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, quotaDay])
+  @@map("scan_feedback_usage")
+}
+
+model SyncMutation {
+  id             String             @id @default(cuid())
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mutationId     String
+  installationId String             @db.Uuid
+  sequence       Int
+  operation      String
+  entityId       String
+  requestHash    String
+  status         SyncMutationStatus @default(PROCESSING)
+  resultJson     Json?
+  errorCode      String?
+  occurredAt     DateTime
+  processedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([userId, mutationId])
+  @@unique([userId, installationId, sequence])
+  @@index([userId, sequence])
+  @@index([userId, createdAt])
+  @@index([status, processedAt])
+  @@map("sync_mutations")
+}
+
+model SyncBootstrapSession {
+  id               String   @id @db.Uuid
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshotRevision BigInt
+  itemsJson        Json
+  totalItems       Int
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+  @@map("sync_bootstrap_sessions")
+}
+
+// Singleton global clock for the sync protocol. It deliberately has no User
+// relation, so deleting an account can cascade its journal rows without ever
+// moving the global watermark backwards.
+model SyncState {
+  id              Int      @id @default(1)
+  currentRevision BigInt   @default(1)
+  retentionFloor  BigInt   @default(1)
+  updatedAt       DateTime @updatedAt
+
+  @@map("sync_state")
+}
+
+model SyncChange {
+  // Filled by the database trigger that atomically advances SyncState.
+  revision   BigInt           @id @default(dbgenerated())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType String
+  entityId   String
+  action     SyncChangeAction @default(UPSERT)
+  version    Int?
+  dataJson   Json?
+  mutationId String?
+  occurredAt DateTime
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, revision])
+  @@index([createdAt, revision])
+  @@map("sync_changes")
+}
+
+// Deliberately has no User relation or foreign key. The task must survive the
+// local account deletion that creates it in the same database transaction.
+model ScanAccountCleanupTask {
+  id                      String                   @id @db.Uuid
+  subjectId               String?
+  subjectHash             String                   @unique @db.Char(64)
+  providerSubjectHash     String?                  @unique @db.Char(64)
+  accountGeneration       Int                      @default(1)
+  appleRevocationRequired Boolean                  @default(false)
+  appleTokenCiphertext    String?
+  appleTokenIv            String?
+  appleTokenTag           String?
+  appleTokenType          String?
+  appleTokenKeyId         String?
+  appleRevokedAt          DateTime?
+  revenueCatDeletedAt     DateTime?
+  status                  ScanAccountCleanupStatus @default(PENDING)
+  attempts                Int                      @default(0)
+  nextAttemptAt           DateTime                 @default(now())
+  leaseToken              String?                  @db.Uuid
+  leaseExpiresAt          DateTime?
+  lastAttemptAt           DateTime?
+  lastErrorCode           String?
+  completedAt             DateTime?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+
+  @@index([status, nextAttemptAt, leaseExpiresAt])
+  @@index([completedAt])
+  @@map("scan_account_cleanup_tasks")
+}
+
+model Streak {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentStreak  Int      @default(0)
+  longestStreak  Int      @default(0)
+  lastActiveDate DateTime @db.Date
+  updatedAt      DateTime @updatedAt
+
+  @@map("streaks")
+}
+
+model Consent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  version   String
+  accepted  Boolean
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("consents")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  EXPIRED
+}
+
+enum PlanType {
+  PREMIUM_WEEKLY
+  PREMIUM_MONTHLY
+  PREMIUM_YEARLY
+}
+
+enum WebhookEventStatus {
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum BillingProvider {
+  APP_STORE
+  PLAY_STORE
+  REVENUECAT_UNKNOWN
+  STRIPE
+}
+
+enum BillingManagementProvider {
+  APP_STORE
+  PLAY_STORE
+  REVENUECAT_UNKNOWN
+  STRIPE
+  NONE
+}
+
+model NotificationPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  breakfast          Boolean @default(false)
+  breakfastTime      String  @default("07:00")
+  lunch              Boolean @default(false)
+  lunchTime          String  @default("12:00")
+  afternoonSnack     Boolean @default(false)
+  afternoonSnackTime String  @default("15:00")
+  dinner             Boolean @default(false)
+  dinnerTime         String  @default("19:00")
+
+  water          Boolean @default(false)
+  waterIntervalH Int     @default(2)
+  waterStartTime String  @default("08:00")
+  waterEndTime   String  @default("22:00")
+
+  workout         Boolean @default(false)
+  workoutTime     String  @default("18:00")
+  workoutDaysJson Json    @default("[1,3,5]")
+
+  progressCheck        Boolean @default(false)
+  progressCheckTime    String  @default("09:00")
+  progressCheckWeekday Int     @default(1)
+
+  streakRisk     Boolean @default(false)
+  streakRiskTime String  @default("21:00")
+
+  pushEnabled      Boolean @default(false)
+  pushSubscription Json?
+
+  // Logical ordering metadata for durable offline desired-state writes.
+  // Legacy REST writes clear these fields so a later sync cannot silently
+  // overwrite a state changed through another path.
+  syncOccurredAt     DateTime?
+  syncMutationId     String?   @db.Uuid
+  syncInstallationId String?   @db.Uuid
+  syncSequence       Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+model WeeklySummary {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStart DateTime @db.Date
+  weekEnd   DateTime @db.Date
+
+  avgCalories Float
+  avgProteinG Float
+  avgCarbsG   Float
+  avgFatG     Float
+  totalMeals  Int
+  daysLogged  Int
+  avgWaterMl  Float
+
+  startWeightKg  Float?
+  endWeightKg    Float?
+  weightChangeKg Float?
+
+  targetCalories   Int?
+  adherencePercent Float?
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, weekStart])
+  @@index([userId, weekStart])
+  @@map("weekly_summaries")
+}
+
+model AchievementDefinition {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  icon      String
+  sortOrder Int      @default(0)
+  criteria  Json
+  createdAt DateTime @default(now())
+
+  userAchievements UserAchievement[]
+
+  @@map("achievement_definitions")
+}
+
+model UserAchievement {
+  id            String                @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime              @default(now())
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   AchievementDefinition @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@map("user_achievements")
+}
+
+model Referral {
+  id        String         @id @default(cuid())
+  inviterId String
+  inviteeId String         @unique
+  status    ReferralStatus @default(PENDING)
+  createdAt DateTime       @default(now())
+  inviter   User           @relation("ReferralInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee   User           @relation("ReferralInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@index([inviterId])
+  @@map("referrals")
+}
+
+model RevenueCatWebhookEvent {
+  id          String             @id
+  type        String
+  status      WebhookEventStatus @default(PROCESSING)
+  error       String?
+  processedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([status, createdAt])
+  @@map("revenuecat_webhook_events")
+}
+
+model StripeCheckoutAttempt {
+  id                String         @id @default(uuid()) @db.Uuid
+  billingSubjectId  String         @db.Uuid
+  billingSubject    BillingSubject @relation(fields: [billingSubjectId], references: [id], onDelete: Cascade)
+  idempotencyKey    String
+  plan              PlanType
+  market            String
+  currency          String
+  priceId           String
+  checkoutSessionId String?        @unique
+  stripeCustomerId  String?
+  claimTokenHash    String?        @unique
+  claimExpiresAt    DateTime?
+  claimedAt         DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@unique([billingSubjectId, idempotencyKey])
+  @@index([billingSubjectId, createdAt])
+  @@map("stripe_checkout_attempts")
+}
+
+model StripeWebhookEvent {
+  id          String             @id
+  type        String
+  status      WebhookEventStatus @default(PROCESSING)
+  error       String?
+  processedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([status, createdAt])
+  @@map("stripe_webhook_events")
+}
+
+// Opaque, non-authenticating owner for billing and reporting evidence. Account
+// deletion detaches userId while preserving provider reconciliation history.
+model BillingSubject {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String?   @unique
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  detachedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  subscriptions          BillingSubscription[]
+  premiumEntitlement     PremiumEntitlement?
+  premiumTrialUse        PremiumTrialUse?
+  stripeCheckoutAttempts StripeCheckoutAttempt[]
+
+  @@index([detachedAt])
+  @@map("billing_subjects")
+}
+
+model BillingSubscription {
+  id                            String             @id @default(cuid())
+  billingSubjectId              String             @db.Uuid
+  billingSubject                BillingSubject     @relation(fields: [billingSubjectId], references: [id], onDelete: Restrict)
+  provider                      BillingProvider
+  providerSubscriptionId        String
+  providerCustomerId            String?
+  providerPriceId               String?
+  currency                      String?
+  market                        String?
+  amount                        Int?
+  interval                      String?
+  providerOriginalTransactionId String?
+  providerStore                 String?
+  providerEnvironment           String?
+  status                        SubscriptionStatus
+  plan                          PlanType
+  currentPeriodStart            DateTime
+  currentPeriodEnd              DateTime
+  trialStart                    DateTime?
+  trialEnd                      DateTime?
+  cancelAtPeriodEnd             Boolean            @default(false)
+  canceledAt                    DateTime?
+  sourceUpdatedAt               DateTime
+  rawVersion                    Int                @default(1)
+  legacySubscriptionId          String?            @unique
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
+
+  @@unique([provider, providerSubscriptionId])
+  @@index([billingSubjectId, status, currentPeriodEnd])
+  @@index([provider, providerCustomerId])
+  @@index([provider, providerOriginalTransactionId])
+  @@map("billing_subscriptions")
+}
+
+model PremiumEntitlement {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  billingSubjectId   String                    @unique @db.Uuid
+  billingSubject     BillingSubject            @relation(fields: [billingSubjectId], references: [id], onDelete: Restrict)
+  active             Boolean                   @default(false)
+  inGracePeriod      Boolean                   @default(false)
+  validUntil         DateTime?
+  managementProvider BillingManagementProvider @default(NONE)
+  sourceProvider     BillingProvider?
+  status             SubscriptionStatus?
+  plan               PlanType?
+  trialEnd           DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean                   @default(false)
+  version            Int                       @default(1)
+  derivedAt          DateTime                  @default(now())
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  @@index([active, validUntil])
+  @@map("premium_entitlements")
+}
+
+model PremiumTrialUse {
+  id                   String          @id @default(uuid()) @db.Uuid
+  billingSubjectId     String          @unique @db.Uuid
+  billingSubject       BillingSubject  @relation(fields: [billingSubjectId], references: [id], onDelete: Restrict)
+  firstProvider        BillingProvider
+  startedAt            DateTime
+  sourceSubscriptionId String?
+  createdAt            DateTime        @default(now())
+
+  @@index([startedAt])
+  @@map("premium_trial_uses")
+}
+
+model LoadTestEvent {
+  id        String   @id @default(cuid())
+  bucket    String   @default("default")
+  payload   String?
+  createdAt DateTime @default(now())
+
+  @@index([bucket, createdAt])
+  @@index([createdAt])
+  @@map("load_test_events")
+}
+
+enum PointsEventType {
+  MEAL_LOGGED
+  WATER_GOAL_MET
+  WORKOUT_COMPLETED
+  PLAN_GENERATED
+  STREAK_DAY
+  BADGE_UNLOCKED
+}
+
+model GamificationProfile {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points    Int      @default(0)
+  level     Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("gamification_profiles")
+}
+
+model PointsEvent {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId    String
+  type       PointsEventType
+  points     Int
+  occurredAt DateTime        @default(now())
+  meta       Json?
+  createdAt  DateTime        @default(now())
+
+  @@unique([userId, eventId])
+  @@index([userId, occurredAt])
+  @@map("points_events")
+}
+
+model Badge {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  description     String
+  iconUrl         String?
+  pointsThreshold Int?
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  userBadges UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  userId     String
+  badgeId    String
+  unlockedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, badgeId])
+  @@index([userId])
+  @@map("user_badges")
+}
+
+// Dados sensiveis de saude. Backend apenas registra/relembra: sem orientacao de
+// dosagem, diagnostico ou interacao medicamentosa. Consentimento e exigido antes
+// de qualquer escrita de medicamento.
+model MedicationConsent {
+  userId     String   @id
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acceptedAt DateTime @default(now())
+  version    String   @default("1")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("medication_consents")
+}
+
+model Medication {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  dosage            String
+  frequency         String
+  reminderTimesJson Json
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  logs MedicationLog[]
+
+  @@index([userId, createdAt])
+  @@map("medications")
+}
+
+model MedicationLog {
+  id               String     @id @default(cuid())
+  userId           String
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medicationId     String
+  medication       Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  takenAt          DateTime   @default(now())
+  skipped          Boolean    @default(false)
+  clientMutationId String?
+  createdAt        DateTime   @default(now())
+
+  @@unique([userId, clientMutationId])
+  @@index([userId, medicationId, takenAt])
+  @@map("medication_logs")
+}
+
+// --- Dieta ---
+
+model DietProfile {
+  userId            String   @id
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalType          String
+  dietType          String?
+  restrictionsJson  Json
+  dislikedFoodsJson Json
+  mealsPerDay       Int
+  targetCalories    Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("diet_profiles")
+}
+
+model Recipe {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  mealType        MealType
+  calories        Int
+  proteinG        Float
+  carbsG          Float
+  fatG            Float
+  prepTimeMin     Int
+  ingredientsJson Json
+  stepsJson       Json
+  dietTypesJson   Json
+  imageUrl        String?
+  aiGenerated     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([mealType])
+  @@map("recipes")
+}
+
+model MealPlan {
+  id                      String   @id @default(cuid())
+  userId                  String
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  active                  Boolean  @default(true)
+  version                 Int      @default(1)
+  rulesVersion            String   @default("catalog-2026-07-24")
+  generatedAt             DateTime @default(now())
+  dietProfileSnapshotJson Json
+  daysJson                Json
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([userId, active])
+  @@map("meal_plans")
+}
+
+// --- Treino ---
+
+// healthConditionsJson e dado sensivel de saude: persistido para restaurar setup
+// entre dispositivos e revalidar seguranca no servidor. Trate com controles de
+// acesso fortes; nunca gera diagnostico ou orientacao medica.
+model WorkoutProfile {
+  userId                 String   @id
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experience             String
+  daysPerWeek            Int
+  daysOfWeekJson         Json     @default("[]")
+  healthConditionsJson   Json
+  equipment              String
+  location               String   @default("GYM")
+  splitPreference        String   @default("AUTO")
+  goal                   String   @default("GENERAL_FITNESS")
+  availableEquipmentJson Json     @default("[]")
+  minutesPerSession      Int
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("workout_profiles")
+}
+
+model WorkoutPlan {
+  id                         String   @id @default(cuid())
+  userId                     String
+  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  active                     Boolean  @default(true)
+  version                    Int      @default(1)
+  rulesVersion               String   @default("catalog-2026-08-12-personalized")
+  name                       String
+  generatedAt                DateTime @default(now())
+  workoutProfileSnapshotJson Json
+  daysJson                   Json
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([userId, active])
+  @@map("workout_plans")
+}
+
+model WorkoutTemplate {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String
+  splitType         String
+  experience        String
+  daysPerWeek       Int
+  equipment         String
+  minutesPerSession Int
+  focusAreasJson    Json
+  daysJson          Json
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([experience, daysPerWeek])
+  @@index([splitType])
+  @@map("workout_templates")
+}
+
+model WorkoutSession {
+  id                     String    @id @default(cuid())
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId                 String
+  workoutId              String
+  startedAt              DateTime  @default(now())
+  finishedAt             DateTime?
+  durationMin            Int?
+  completedExercisesJson Json      @default("[]")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([userId, startedAt])
+  @@map("workout_sessions")
+}
+
+enum OnboardingSubmissionStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model OnboardingSubmission {
+  id             String                     @id @default(cuid())
+  userId         String
+  user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idempotencyKey String
+  requestHash    String
+  status         OnboardingSubmissionStatus @default(PROCESSING)
+  resultJson     Json?
+  errorCode      String?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@map("onboarding_submissions")
+}
+
+enum PlanMutationOperation {
+  DIET_MEAL_SWAP
+  WORKOUT_EXERCISE_SWAP
+}
+
+model PlanMutation {
+  id             String                @id @default(cuid())
+  userId         String
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operation      PlanMutationOperation
+  idempotencyKey String
+  requestHash    String
+  beforeJson     Json?
+  resultJson     Json
+  createdAt      DateTime              @default(now())
+
+  @@unique([userId, operation, idempotencyKey])
+  @@index([userId, createdAt])
+  @@map("plan_mutations")
+}
+
+// --- GLP-1 ---
+
+// O dominio GLP-1 e exclusivamente de registro e acompanhamento. Nenhum campo
+// abaixo representa recomendacao, ajuste ou prescricao de dose pelo sistema.
+enum Glp1TreatmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum Glp1Route {
+  SUBCUTANEOUS
+  ORAL
+}
+
+enum Glp1Source {
+  USER
+  PRESCRIPTION
+  CLINICIAN
+  PHARMACIST
+  OTHER
+}
+
+enum Glp1DoseStatus {
+  SCHEDULED
+  TAKEN
+  MISSED
+  SKIPPED
+  CANCELLED
+}
+
+model Glp1Consent {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version          String
+  scopesJson       Json
+  acceptedAt       DateTime  @default(now())
+  clientAcceptedAt DateTime?
+  revokedAt        DateTime?
+  source           String    @default("user")
+  createdAt        DateTime  @default(now())
+
+  @@index([userId, acceptedAt])
+  @@map("glp1_consents")
+}
+
+model Glp1Treatment {
+  id                    String              @id @default(cuid())
+  userId                String
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeIngredient      String
+  brandName             String?
+  route                 Glp1Route
+  formulation           String?
+  medicationMarket      MedicationMarket?
+  medicationCountryCode String?             @db.Char(2)
+  currentDoseMg         Decimal             @db.Decimal(10, 4)
+  intervalHours         Decimal             @db.Decimal(10, 2)
+  usualWeekday          Int?
+  usualLocalTime        String?
+  timezone              String
+  startedAt             DateTime?
+  endedAt               DateTime?
+  pausedAt              DateTime?
+  status                Glp1TreatmentStatus @default(ACTIVE)
+  source                Glp1Source          @default(USER)
+  sourceReference       String?
+  notes                 String?
+  startWeightKg         Decimal?            @db.Decimal(10, 3)
+  baselineSymptomsJson  Json?
+  motivation            String?
+  cravingPeakDay        Int?
+  clientMutationId      String?
+  version               Int                 @default(1)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  deletedAt             DateTime?
+
+  dosePlanPeriods Glp1DosePlanPeriod[]
+  doseEvents      Glp1DoseEvent[]
+  symptomEvents   Glp1SymptomEvent[]
+  reminderRules   Glp1ReminderRule[]
+
+  @@unique([userId, clientMutationId])
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@map("glp1_treatments")
+}
+
+model Glp1DosePlanPeriod {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  treatmentId   String
+  treatment     Glp1Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  doseMg        Decimal       @db.Decimal(10, 4)
+  intervalHours Decimal       @db.Decimal(10, 2)
+  validFrom     DateTime
+  validUntil    DateTime?
+  source        Glp1Source    @default(USER)
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  @@unique([treatmentId, validFrom])
+  @@index([userId, treatmentId, validFrom])
+  @@map("glp1_dose_plan_periods")
+}
+
+model Glp1DoseEvent {
+  id                    String         @id @default(cuid())
+  userId                String
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  treatmentId           String
+  treatment             Glp1Treatment  @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  scheduledAt           DateTime?
+  reminderAt            DateTime?
+  takenAt               DateTime?
+  doseMg                Decimal        @db.Decimal(10, 4)
+  status                Glp1DoseStatus @default(SCHEDULED)
+  route                 Glp1Route
+  injectionSiteCode     String?
+  painLevel             Int?
+  notes                 String?
+  source                Glp1Source     @default(USER)
+  clientMutationId      String?
+  possibleDuplicateOfId String?
+  duplicateConfirmedAt  DateTime?
+  version               Int            @default(1)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  deletedAt             DateTime?
+
+  @@unique([userId, clientMutationId])
+  @@index([userId, treatmentId, takenAt])
+  @@index([userId, treatmentId, scheduledAt])
+  @@index([userId, status])
+  @@map("glp1_dose_events")
+}
+
+model Glp1SymptomEvent {
+  id                      String        @id @default(cuid())
+  userId                  String
+  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  treatmentId             String
+  treatment               Glp1Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  code                    String
+  customName              String?
+  severity                Int
+  occurredAt              DateTime
+  endedAt                 DateTime?
+  durationMinutes         Int?
+  notes                   String?
+  relatedDoseEventIdsJson Json?
+  acknowledgedAt          DateTime?
+  safetyContentVersion    String?
+  clientMutationId        String?
+  version                 Int           @default(1)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  deletedAt               DateTime?
+
+  @@unique([userId, clientMutationId])
+  @@index([userId, treatmentId, occurredAt])
+  @@index([userId, severity, occurredAt])
+  @@map("glp1_symptom_events")
+}
+
+model Glp1ReminderRule {
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  treatmentId      String
+  treatment        Glp1Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  eventType        String
+  offsetMinutes    Int
+  enabled          Boolean       @default(true)
+  channel          String        @default("local")
+  timezone         String
+  clientMutationId String?
+  version          Int           @default(1)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([userId, treatmentId, eventType, offsetMinutes, channel])
+  @@unique([userId, clientMutationId])
+  @@index([userId, treatmentId])
+  @@map("glp1_reminder_rules")
+}
+
+model Glp1InjectionSiteState {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  siteCode    String
+  unavailable Boolean  @default(false)
+  notes       String?
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, siteCode])
+  @@index([userId])
+  @@map("glp1_injection_site_states")
+}
+
+model Glp1SetupSubmission {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idempotencyKey String
+  requestHash    String
+  resultJson     Json
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@map("glp1_setup_submissions")
+}
+
+model ProductAnalyticsEvent {
+  id String @id @default(cuid())
+
+  // Identity — must work fully anonymously
+  visitorId String
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id])
+
+  // Event
+  eventName String
+  stepId    String?
+  stepIndex Int?
+  direction String?
+
+  // Attribution
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+  fbclid      String?
+  ttclid      String?
+  gclid       String?
+  country     String?
+  // Coarse age bucket ("18-24", "25-34", ...), computed client-side from the
+  // quiz's birthDate step once answered. Never exact age/birthdate.
+  ageRange    String?
+
+  // Device (parsed server-side from User-Agent)
+  platform   String?
+  os         String?
+  browser    String?
+  deviceType String?
+
+  properties Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([visitorId])
+  @@index([eventName])
+  @@index([createdAt])
+  @@index([utmCampaign])
+  @@index([userId])
+  @@map("product_analytics_events")
+}
+
+// Community - minimal text-only posts/comments/likes so users can share
+// experiences with each other. Deliberately NOT linked to any health data
+// (weight, doses, meals, symptoms) - a post is free text the user typed,
+// never auto-populated from their tracked data (see product rules this
+// mirrors: never present health info without an explicit user action).
+// deletedAt is the single mechanism for both "author removed their own
+// post/comment" and "an admin (isAdmin) moderated it" - CommunityService
+// authorizes either, there is no separate moderation/hidden state.
+model CommunityPost {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text              String
+  imageUrl          String?
+  videoUrl          String?
+  videoThumbnailUrl String?
+  audience          String    @default("PUBLIC")
+  location          String?
+  workoutMeta       Json?
+  createdAt         DateTime  @default(now())
+  deletedAt         DateTime?
+
+  comments CommunityComment[]
+  likes    CommunityLike[]
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([audience])
+  @@map("community_posts")
+}
+
+model CommunityFriendship {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserFriends", fields: [userId], references: [id], onDelete: Cascade)
+  friendId  String
+  friend    User     @relation("FriendUsers", fields: [friendId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+  @@map("community_friendships")
+}
+
+// parentCommentId is one level deep only, by product rule (see
+// CommunityService.createComment): a reply's parent can never itself be a
+// reply. onDelete: Cascade here only matters if a user's account is deleted
+// (cascading from User); day-to-day comment/reply removal always goes
+// through deletedAt (see CommunityService.deleteComment), which cascades
+// the single level by hand since there is no recursion to worry about.
+model CommunityComment {
+  id              String             @id @default(cuid())
+  postId          String
+  post            CommunityPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text            String
+  parentCommentId String?
+  parentComment   CommunityComment?  @relation("CommunityCommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         CommunityComment[] @relation("CommunityCommentReplies")
+  createdAt       DateTime           @default(now())
+  deletedAt       DateTime?
+
+  @@index([postId, createdAt])
+  @@index([userId])
+  @@index([parentCommentId])
+  @@map("community_comments")
+}
+
+// One row per (post, user) - unique constraint doubles as the "did I already
+// like this" check and makes like/unlike a plain insert/delete, no counter
+// to keep in sync by hand (counts are a live COUNT(*) at read time).
+model CommunityLike {
+  id        String        @id @default(cuid())
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("community_likes")
+}
+
+enum CommunityReportTargetType {
+  POST
+  COMMENT
+  USER
+}
+
+// Durable record only - reporting takes no automated action (no
+// auto-hide-after-N-reports), since that's an algorithmic moderation
+// feature beyond this feature's minimal scope and easy to game. An admin
+// reviews these directly (e.g. via Prisma Studio) for now.
+model CommunityReport {
+  id         String                    @id @default(cuid())
+  reporterId String
+  reporter   User                      @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType CommunityReportTargetType
+  targetId   String
+  reason     String?
+  createdAt  DateTime                  @default(now())
+
+  // One report per user per piece of content - CommunityService.report()
+  // pre-checks this for a friendly 409, the constraint is the hard backstop
+  // for the concurrent-double-tap race.
+  @@unique([reporterId, targetType, targetId])
+  @@index([targetType, targetId])
+  @@index([reporterId])
+  @@map("community_reports")
+}
+
+// AI support chat (see modules/support-chat) - separate from the plain
+// contact-by-email SupportService/SUPPORT_EMAIL flow. Unlike community
+// content, a conversation here is never visible to anyone but its owner, so
+// SupportChatService.deleteConversation() hard-deletes (cascading to its
+// messages) instead of the soft-delete used for public community content -
+// there is no other user's reference to preserve, and this is the more
+// privacy-respecting choice for what may include account/support questions.
+model SupportChatConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // First ~60 chars of the opening message, set once at creation - just a
+  // label if a conversation list UI is added later, never sent back to the
+  // model as context.
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages SupportChatMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("support_chat_conversations")
+}
+
+// In-app "Suggestions" - unlike SupportService.contact() (plain email
+// forward, nothing persisted), every submission here is saved durably so
+// nothing is lost waiting on an inbox. The product owner reads these
+// directly (via a future admin view or a DB query) rather than relying on
+// email archaeology - SuggestionsService also best-effort emails
+// SUPPORT_EMAIL when configured, but that's a convenience notification,
+// not the source of truth.
+model Suggestion {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("suggestions")
+}
+
+enum SupportChatRole {
+  USER
+  ASSISTANT
+}
+
+model SupportChatMessage {
+  id             String                  @id @default(cuid())
+  conversationId String
+  conversation   SupportChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           SupportChatRole
+  text           String
+  createdAt      DateTime                @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("support_chat_messages")
+}
+
+model DirectChatConversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants DirectChatParticipant[]
+  messages     DirectChatMessage[]
+
+  @@map("direct_chat_conversations")
+}
+
+model DirectChatParticipant {
+  id             String                 @id @default(cuid())
+  conversationId String
+  conversation   DirectChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime               @default(now())
+  joinedAt       DateTime               @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("direct_chat_participants")
+}
+
+model DirectChatMessage {
+  id             String                 @id @default(cuid())
+  conversationId String
+  conversation   DirectChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User                   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  text           String                 @default("")
+  imageUrl       String?
+  createdAt      DateTime               @default(now())
+  deletedAt      DateTime?
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("direct_chat_messages")
+}
+
+model TrainerProfile {
+  id              String            @id @default(cuid())
+  userId          String            @unique
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  handle          String?           @unique
+  title           String            @default("Certified Fitness Trainer")
+  bio             String            @default("")
+  specialties     Json              @default("[]")
+  certifications  Json              @default("[]")
+  yearsExperience Int               @default(1)
+  traineesCount   Int               @default(0)
+  rating          Float             @default(5.0)
+  reviewsCount    Int               @default(0)
+  instagram       String?
+  avatarUrl       String?
+  coverUrl        String?
+  verified        Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  customExercises TrainerExercise[]
+  programs        TrainerProgram[]
+
+  @@map("trainer_profiles")
+}
+
+model TrainerExercise {
+  id             String         @id @default(cuid())
+  trainerId      String
+  trainer        TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  name           String
+  category       String         @default("STRENGTH")
+  primaryMuscles Json           @default("[]")
+  equipment      String         @default("BODYWEIGHT")
+  instructions   String?
+  imageUrl       String?
+  videoUrl       String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([trainerId])
+  @@map("trainer_exercises")
+}
+
+model TrainerProgram {
+  id            String                     @id @default(cuid())
+  trainerId     String
+  trainer       TrainerProfile             @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  title         String
+  description   String                     @default("")
+  goal          String                     @default("WEIGHT_LOSS")
+  difficulty    String                     @default("INTERMEDIATE")
+  durationWeeks Int                        @default(4)
+  coverImageUrl String?
+  isPublished   Boolean                    @default(true)
+  daysJson      Json                       @default("[]")
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+
+  enrollments   TrainerProgramEnrollment[]
+
+  @@index([trainerId])
+  @@index([goal])
+  @@map("trainer_programs")
+}
+
+model TrainerProgramEnrollment {
+  id            String         @id @default(cuid())
+  programId     String
+  program       TrainerProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status        String         @default("ACTIVE")
+  currentDay    Int            @default(1)
+  completedDays Json           @default("[]")
+  joinedAt      DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([programId, userId])
+  @@index([userId])
+  @@index([programId])
+  @@map("trainer_program_enrollments")
+}
+
+model CommunityStory {
+  clientRequestId String?
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaUrl  String
+  mediaType String    @default("IMAGE")
+  caption   String?
+  duration  Int       @default(5)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  views CommunityStoryView[]
+  likes CommunityStoryLike[]
+
+  @@unique([userId, clientRequestId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@map("community_stories")
+}
+
+model CommunityStoryView {
+  id       String         @id @default(cuid())
+  storyId  String
+  story    CommunityStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewedAt DateTime       @default(now())
+
+  @@unique([storyId, userId])
+  @@map("community_story_views")
+}
+
+model CommunityStoryLike {
+  id        String         @id @default(cuid())
+  storyId   String
+  story     CommunityStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([storyId, userId])
+  @@map("community_story_likes")
+}
+
+
+model TrainingWorkout {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutId String
+  title String
+  startedAt DateTime
+  finishedAt DateTime
+  durationSec Int
+  completedSets Int
+  createdAt DateTime @default(now())
+  @@unique([userId, workoutId])
+  @@index([finishedAt, userId])
+  @@map("training_workouts")
+}
+
+model TrainingChallengeEntry {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId String
+  weekStart DateTime
+  joinedAt DateTime @default(now())
+  @@unique([userId, challengeId, weekStart])
+  @@map("training_challenge_entries")
+}

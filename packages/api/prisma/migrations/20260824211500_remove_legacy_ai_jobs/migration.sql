@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS "ai_jobs";
+DROP TYPE IF EXISTS "AiJobStatus";
+DROP TYPE IF EXISTS "AiJobKind";

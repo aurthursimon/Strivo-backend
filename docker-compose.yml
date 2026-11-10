@@ -1,0 +1,33 @@
+# Local development only.
+#
+# This file exists to satisfy scripts/dev-docker-stack.sh, which expects a
+# `docker-compose.yml` at the repo root defining a `postgres` service reachable
+# on host port 5434, with user/database `nutriscan` (matching the default
+# DATABASE_URL in packages/api/.env.example).
+#
+# This is NOT a reproduction of the Render deployment. The API and the
+# Scan Service are intentionally NOT containerized here — for local
+# development they run directly via `pnpm` (see DEV_RUNTIME_SETUP.md), same
+# as scripts/dev-docker-stack.sh already assumes (it runs `pnpm dev` after
+# this stack is up, not a container for the API).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nutriscan
+      POSTGRES_PASSWORD: nutriscan
+      POSTGRES_DB: nutriscan
+    ports:
+      - '5434:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nutriscan -d nutriscan']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres_data:

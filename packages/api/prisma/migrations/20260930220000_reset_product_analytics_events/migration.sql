@@ -1,0 +1,12 @@
+-- One-off data reset, not a schema change (same pattern as the
+-- grant_admin_dashboard_access migration) — applied automatically via
+-- render.yaml's preDeployCommand, since the free Render plan has no Shell
+-- access to run this by hand.
+--
+-- Wipes all rows collected so far in the admin dashboard's funnel/attribution
+-- metrics (test traffic from the 15-tester round + anything before the Meta
+-- Pixel/CAPI integration went live), so tracking starts clean from the next
+-- real campaign. This table is self-contained: it only holds an optional,
+-- nullable FK *to* User (never the reverse), so this does not touch users,
+-- subscriptions, scans, or any other data.
+TRUNCATE TABLE "product_analytics_events";
